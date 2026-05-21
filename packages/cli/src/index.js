@@ -44,6 +44,12 @@ export async function run(argv, {
     io.stdout.write(`releaseId=${result.releaseId}\n`);
     io.stdout.write(`app=${result.app}\n`);
     io.stdout.write(`defaultUrl=${result.defaultUrl}\n`);
+    if (result.subdomainUrl) {
+      io.stdout.write(`subdomainUrl=${result.subdomainUrl}\n`);
+    }
+    if (result.pathUrl) {
+      io.stdout.write(`pathUrl=${result.pathUrl}\n`);
+    }
     if (result.customUrl) {
       io.stdout.write(`customUrl=${result.customUrl}\n`);
     }

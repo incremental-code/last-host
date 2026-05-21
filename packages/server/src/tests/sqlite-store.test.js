@@ -25,7 +25,7 @@ function createMockSqlShell() {
         return { stdout: '[{"id":"r1"}]\n', stderr: '' };
       }
       if (String(sql).includes('FROM apps a')) {
-        return { stdout: '[{"org":"acme","app":"shop","port":3100,"custom_domain":""}]\n', stderr: '' };
+        return { stdout: '[{"org":"acme","app":"shop","port":3100,"route_mode":"subdomain","base_path":"","custom_domain":""}]\n', stderr: '' };
       }
       return { stdout: '', stderr: '' };
     },
@@ -46,6 +46,13 @@ test('sqlite store emits sqlite3 commands and upserts runtime data', async () =>
     healthPath: '/health',
     serviceName: 'last-host-acme-shop',
   });
+  await store.upsertRouting({
+    appId: app.id,
+    routeMode: 'path',
+    basePath: '/demo/ecommerce',
+    org: 'acme',
+    app: 'shop',
+  });
   await store.upsertRelease({ releaseId: 'r1', appId: app.id, artifactRef: '/artifact.tar.gz', status: 'prepared' });
   await store.setActiveRelease({ appId: app.id, releaseId: 'r1' });
   await store.setDomains({ appId: app.id, defaultDomain: 'shop.acme.edge-a', customDomain: '' });
@@ -54,6 +61,7 @@ test('sqlite store emits sqlite3 commands and upserts runtime data', async () =>
   assert.equal(shell.calls.some((call) => call.command === 'sqlite3'), true);
   const executedSql = shell.calls.map((call) => call.args.at(-1)).join('\n');
   assert.match(executedSql, /UPDATE releases SET status='inactive'/);
+  assert.match(executedSql, /INSERT INTO app_routes/);
   assert.match(executedSql, /DELETE FROM domains WHERE app_id='acme--shop' AND kind='custom'/);
 });
 

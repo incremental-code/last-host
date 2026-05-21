@@ -5,11 +5,52 @@ function sanitizeDomain(domain) {
   return domain.trim().toLowerCase();
 }
 
+function sanitizePathSegment(segment) {
+  if (typeof segment !== 'string') return '';
+  return segment
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .replace(/-{2,}/g, '-');
+}
+
+export function normalizeBasePath(basePath, { org = '', app = '' } = {}) {
+  const fallback = org || app ? defaultRoutePath({ org, app }) : '';
+  if (typeof basePath !== 'string' || !basePath.trim()) {
+    return fallback;
+  }
+
+  const segments = basePath
+    .trim()
+    .split('/')
+    .map(sanitizePathSegment)
+    .filter(Boolean);
+
+  return segments.length > 0 ? `/${segments.join('/')}` : fallback;
+}
+
+export function normalizeRouteMode(routeMode) {
+  const normalized = typeof routeMode === 'string' ? routeMode.trim().toLowerCase() : '';
+  return ['subdomain', 'path', 'both'].includes(normalized) ? normalized : 'subdomain';
+}
+
+export function validateRouteMode(routeMode) {
+  const normalized = typeof routeMode === 'string' ? routeMode.trim().toLowerCase() : '';
+  return ['subdomain', 'path', 'both'].includes(normalized)
+    ? { ok: true }
+    : { ok: false, error: 'route mode must be one of: subdomain, path, both' };
+}
+
 export function defaultRouteHost({ host, org, app }) {
   const normalizedHost = normalizeHostName(host);
   const normalizedOrg = normalizeOrgName(org);
   const normalizedApp = normalizeAppName(app);
   return `${normalizedApp}.${normalizedOrg}.${normalizedHost}`;
+}
+
+export function defaultRoutePath({ org, app }) {
+  return `/${normalizeOrgName(org)}/${normalizeAppName(app)}`;
 }
 
 export function renderReverseProxyBlock({ domain, upstream }) {
@@ -28,20 +69,77 @@ export function renderDefaultRoute({ host, org, app, upstream }) {
   return renderReverseProxyBlock({ domain, upstream });
 }
 
+export function renderPathHandle({ pathPrefix, upstream }) {
+  const cleanPathPrefix = normalizeBasePath(pathPrefix);
+  if (!cleanPathPrefix) {
+    throw new Error('pathPrefix is required');
+  }
+  if (!upstream || typeof upstream !== 'string') {
+    throw new Error('upstream is required');
+  }
+  return `handle_path ${cleanPathPrefix}* {\n    reverse_proxy ${upstream}\n  }`;
+}
+
+export function renderPathRoutes({ domain, routes = [] }) {
+  const cleanDomain = sanitizeDomain(domain);
+  if (!cleanDomain) {
+    throw new Error('domain is required');
+  }
+
+  const handles = routes
+    .map((route) => ({
+      pathPrefix: normalizeBasePath(route.pathPrefix, route),
+      upstream: route.upstream,
+    }))
+    .sort((left, right) => right.pathPrefix.length - left.pathPrefix.length)
+    .map(({ pathPrefix, upstream }) => renderPathHandle({ pathPrefix, upstream }));
+
+  if (handles.length === 0) {
+    throw new Error('at least one path route is required');
+  }
+
+  return `${cleanDomain} {\n  ${handles.join('\n\n  ')}\n}`;
+}
+
 export function renderCustomDomainRoute({ domain, upstream }) {
   return renderReverseProxyBlock({ domain, upstream });
 }
 
-export function renderCaddyConfig({
-  host,
-  org,
-  app,
-  upstream,
-  customDomains = [],
-}) {
-  const blocks = [renderDefaultRoute({ host, org, app, upstream })];
-  for (const domain of customDomains) {
-    blocks.push(renderCustomDomainRoute({ domain, upstream }));
+export function renderCaddyConfig({ host, apps = [] }) {
+  const blocks = [];
+  const pathRoutes = [];
+
+  for (const app of apps) {
+    const routeMode = normalizeRouteMode(app.routeMode);
+    const customDomains = Array.isArray(app.customDomains) ? app.customDomains : [];
+
+    if (routeMode === 'subdomain' || routeMode === 'both') {
+      blocks.push(
+        renderDefaultRoute({
+          host,
+          org: app.org,
+          app: app.app,
+          upstream: app.upstream,
+        }),
+      );
+    }
+
+    if (routeMode === 'path' || routeMode === 'both') {
+      pathRoutes.push({
+        org: app.org,
+        app: app.app,
+        pathPrefix: app.basePath,
+        upstream: app.upstream,
+      });
+    }
+
+    for (const domain of customDomains) {
+      blocks.push(renderCustomDomainRoute({ domain, upstream: app.upstream }));
+    }
+  }
+
+  if (pathRoutes.length > 0) {
+    blocks.push(renderPathRoutes({ domain: host, routes: pathRoutes }));
   }
   return `${blocks.join('\n\n')}\n`;
 }

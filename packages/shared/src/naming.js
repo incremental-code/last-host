@@ -1,4 +1,6 @@
 const SLUG_PART_REGEX = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/;
+const HOST_LABEL_REGEX = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/;
+const HOSTNAME_MAX_LENGTH = 253;
 
 function normalizeSlugPart(raw) {
   if (typeof raw !== 'string') return '';
@@ -37,7 +39,14 @@ export function normalizeOrgName(input) {
 }
 
 export function normalizeHostName(input) {
-  return normalizeSlugPart(input);
+  if (typeof input !== 'string') return '';
+  return input
+    .trim()
+    .toLowerCase()
+    .split('.')
+    .map(normalizeSlugPart)
+    .filter(Boolean)
+    .join('.');
 }
 
 export function validateOrgName(org) {
@@ -45,7 +54,18 @@ export function validateOrgName(org) {
 }
 
 export function validateHostName(host) {
-  return validateSlugPart(host, 'host');
+  if (typeof host !== 'string') {
+    return { ok: false, error: `host must match ${HOST_LABEL_REGEX.source}` };
+  }
+  const trimmed = host.trim().toLowerCase();
+  if (!trimmed || trimmed.length > HOSTNAME_MAX_LENGTH) {
+    return { ok: false, error: `host must be 1-${HOSTNAME_MAX_LENGTH} characters` };
+  }
+  const labels = trimmed.split('.');
+  if (labels.some((label) => !HOST_LABEL_REGEX.test(label))) {
+    return { ok: false, error: `host labels must match ${HOST_LABEL_REGEX.source}` };
+  }
+  return { ok: true };
 }
 
 export function canonicalId(...parts) {

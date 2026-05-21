@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {
   V1_MIGRATION,
   V2_MIGRATION,
+  V3_MIGRATION,
   latestSchemaVersion,
   migrate,
   schemaStatementsForVersion,
@@ -36,7 +37,10 @@ test('migrate executes statements and inserts migration record', async () => {
     },
     fromVersion: 0,
   });
-  assert.equal(calls.length, V1_MIGRATION.statements.length + V2_MIGRATION.statements.length + 2);
+  assert.equal(
+    calls.length,
+    V1_MIGRATION.statements.length + V2_MIGRATION.statements.length + V3_MIGRATION.statements.length + 3,
+  );
   assert.match(calls.at(-1), /INSERT OR REPLACE INTO schema_migrations/);
 });
 
@@ -48,8 +52,13 @@ test('migrate only runs newer migrations', async () => {
     },
     fromVersion: 1,
   });
-  assert.equal(calls.length, V2_MIGRATION.statements.length + 1);
+  assert.equal(calls.length, V2_MIGRATION.statements.length + V3_MIGRATION.statements.length + 2);
   assert.match(calls.at(0), /CREATE TABLE IF NOT EXISTS app_runtime/);
+});
+
+test('v3 migration includes routing table', () => {
+  const sql = V3_MIGRATION.statements.join('\n');
+  assert.match(sql, /CREATE TABLE IF NOT EXISTS app_routes/);
 });
 
 test('migrate rejects non-function execute', async () => {
@@ -57,5 +66,5 @@ test('migrate rejects non-function execute', async () => {
 });
 
 test('latest schema version reports migration max', () => {
-  assert.equal(latestSchemaVersion(), 2);
+  assert.equal(latestSchemaVersion(), 3);
 });

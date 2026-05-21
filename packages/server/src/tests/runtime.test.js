@@ -19,6 +19,7 @@ function createMockStore() {
   const releases = new Map();
   const domains = new Map();
   const hosts = new Map();
+  const routes = new Map();
 
   return {
     async init() {},
@@ -36,6 +37,10 @@ function createMockStore() {
     async getApp(org, app) { return apps.get(`${org}--${app}`) || null; },
     async upsertRuntime(runtime) { runtimes.set(runtime.appId, { ...runtime, service_name: runtime.serviceName, entry_command: runtime.entryCommand, active_release_id: runtime.activeReleaseId || '' }); },
     async getRuntime(appId) { return runtimes.get(appId) || null; },
+    async getRouting(appId) { return routes.get(appId) || null; },
+    async upsertRouting({ appId, routeMode, basePath }) {
+      routes.set(appId, { route_mode: routeMode, base_path: basePath });
+    },
     async upsertRelease({ appId, releaseId }) { releases.set(`${appId}:${releaseId}`, { appId, releaseId }); },
     async setActiveRelease({ appId, releaseId }) {
       const current = runtimes.get(appId);
@@ -55,6 +60,8 @@ function createMockStore() {
           org: app.org,
           app: app.app,
           port: runtimes.get(app.id)?.port || 3000,
+          route_mode: routes.get(app.id)?.route_mode || 'subdomain',
+          base_path: routes.get(app.id)?.base_path || '',
           custom_domain: domains.get(app.id) || '',
         }));
     },
@@ -108,6 +115,52 @@ test('prepare + activate release calls tar, systemctl and caddy reload via shell
   assert.match(unitCall.options.stdin, /ExecStart=node app\/server.js/);
   const caddyfile = files.find((f) => f.file.endsWith('/caddy/Caddyfile'));
   assert.match(caddyfile.content, /shop\.acme\.edge-a/);
+});
+
+test('activate release supports path routing on the base host', async () => {
+  const shell = createMockShell();
+  const store = createMockStore();
+  const files = [];
+
+  const runtime = createHostRuntime({
+    rootDir: '/opt/last-host',
+    store,
+    shell,
+    fsOps: {
+      async mkdir() {},
+      async access() {},
+      async readlink() { throw new Error('missing'); },
+      async symlink() {},
+      async rename() {},
+      async writeFile(file, content) { files.push({ file, content }); },
+    },
+  });
+
+  await runtime.initHost({ hostId: 'lastjs.org', hostname: 'LastJS.org' });
+  await runtime.prepareRelease({
+    hostId: 'lastjs.org',
+    org: 'demo',
+    app: 'ecommerce',
+    releaseId: 'r1',
+    artifactPath: '/artifact.tar.gz',
+    entryCommand: 'node app/server.js',
+    port: 3200,
+    routeMode: 'path',
+  });
+
+  const result = await runtime.activateRelease({
+    hostId: 'lastjs.org',
+    org: 'demo',
+    app: 'ecommerce',
+    releaseId: 'r1',
+    routeMode: 'path',
+  });
+
+  assert.equal(result.defaultUrl, 'https://lastjs.org/demo/ecommerce');
+  assert.equal(result.pathUrl, 'https://lastjs.org/demo/ecommerce');
+  assert.equal(result.subdomainUrl, '');
+  const caddyfile = files.find((f) => f.file.endsWith('/caddy/Caddyfile'));
+  assert.match(caddyfile.content, /lastjs\.org \{\n  handle_path \/demo\/ecommerce\*/);
 });
 
 test('activate release renders custom domain route', async () => {

@@ -53,7 +53,9 @@ export async function runCli(argv, { shell = createShellRunner() } = {}) {
       entryCommand: flags['entry-command'] || 'node app/server.js',
       port: Number(flags.port || 3000),
       healthPath: flags['health-path'] || '/health',
-      customDomain: flags['custom-domain'] || '',
+      customDomain: flags['custom-domain'],
+      routeMode: flags['route-mode'] || '',
+      basePath: flags['base-path'] || '',
     });
     printResult({ status: 'ok', ...result });
     return result;
@@ -65,7 +67,9 @@ export async function runCli(argv, { shell = createShellRunner() } = {}) {
       org: flags.org,
       app: flags.app,
       releaseId: flags['release-id'],
-      customDomain: flags['custom-domain'] || '',
+      customDomain: flags['custom-domain'],
+      routeMode: flags['route-mode'] || '',
+      basePath: flags['base-path'] || '',
     });
     printResult(result);
     return result;

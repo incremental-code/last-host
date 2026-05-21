@@ -1,4 +1,12 @@
-import { appCanonicalId, migrate, normalizeAppName, normalizeHostName, normalizeOrgName } from '@incremental-code/last-host-shared';
+import {
+  appCanonicalId,
+  migrate,
+  normalizeAppName,
+  normalizeBasePath,
+  normalizeHostName,
+  normalizeOrgName,
+  normalizeRouteMode,
+} from '@incremental-code/last-host-shared';
 
 function sqlString(value) {
   return `'${String(value ?? '').replaceAll("'", "''")}'`;
@@ -29,8 +37,8 @@ export function createSqliteStore({ dbPath, shell }) {
     },
 
     async upsertHost({ id, hostname }) {
-      const hostId = id || normalizeHostName(hostname);
-      const hostName = normalizeHostName(hostname);
+      const hostName = normalizeHostName(hostname || id);
+      const hostId = id || hostName;
       await run(`INSERT INTO hosts(id, hostname)
         VALUES (${sqlString(hostId)}, ${sqlString(hostName)})
         ON CONFLICT(id) DO UPDATE SET hostname=excluded.hostname`);
@@ -55,6 +63,19 @@ export function createSqliteStore({ dbPath, shell }) {
           port=excluded.port,
           health_path=excluded.health_path,
           service_name=excluded.service_name,
+          updated_at=datetime('now')`);
+    },
+
+    async upsertRouting({ appId, routeMode = 'subdomain', basePath = '', org = '', app = '' }) {
+      const normalizedRouteMode = normalizeRouteMode(routeMode);
+      const normalizedBasePath = normalizedRouteMode === 'subdomain'
+        ? ''
+        : normalizeBasePath(basePath, { org, app });
+      await run(`INSERT INTO app_routes(app_id, route_mode, base_path, updated_at)
+        VALUES (${sqlString(appId)}, ${sqlString(normalizedRouteMode)}, ${sqlString(normalizedBasePath)}, datetime('now'))
+        ON CONFLICT(app_id) DO UPDATE SET
+          route_mode=excluded.route_mode,
+          base_path=excluded.base_path,
           updated_at=datetime('now')`);
     },
 
@@ -107,6 +128,18 @@ export function createSqliteStore({ dbPath, shell }) {
       return rows[0] || null;
     },
 
+    async getRouting(appId) {
+      const rows = await queryRows(`SELECT app_id, route_mode, base_path
+        FROM app_routes WHERE app_id=${sqlString(appId)} LIMIT 1`);
+      return rows[0] || null;
+    },
+
+    async getCustomDomain(appId) {
+      const rows = await queryRows(`SELECT domain
+        FROM domains WHERE app_id=${sqlString(appId)} AND kind='custom' LIMIT 1`);
+      return rows[0]?.domain || '';
+    },
+
     async findRollbackRelease(appId, currentReleaseId) {
       const rows = await queryRows(`SELECT id FROM releases
         WHERE app_id=${sqlString(appId)} AND id != ${sqlString(currentReleaseId)}
@@ -116,12 +149,15 @@ export function createSqliteStore({ dbPath, shell }) {
 
     async listCaddyApps(hostId) {
       return queryRows(`SELECT a.org, a.app, r.port,
+        COALESCE(ar.route_mode, 'subdomain') AS route_mode,
+        COALESCE(ar.base_path, '') AS base_path,
         COALESCE(MAX(CASE WHEN d.kind='custom' THEN d.domain END), '') AS custom_domain
         FROM apps a
         JOIN app_runtime r ON r.app_id = a.id
+        LEFT JOIN app_routes ar ON ar.app_id = a.id
         LEFT JOIN domains d ON d.app_id = a.id
         WHERE a.host_id = ${sqlString(hostId)}
-        GROUP BY a.id, a.org, a.app, r.port
+        GROUP BY a.id, a.org, a.app, r.port, ar.route_mode, ar.base_path
         ORDER BY a.org, a.app`);
     },
   };

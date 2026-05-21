@@ -38,27 +38,25 @@ Atomic releases are represented by immutable `releases/<release-id>` directories
 
 ## Request routing behavior
 
-### Default domain
-Default host format is:
+### Default routes
+Deploys can choose one of three default routing modes:
 
-```text
-<host>/<org>/<app-name>
-```
+- `subdomain` (default): `https://<app>.<org>.<host>`
+- `path`: `https://<host>/<org>/<app>`
+- `both`: enables both of the routes above
 
-- `Host` identifies the VPS endpoint (for example `apps.example.com`)
-- First path segment is `org`
-- Second path segment is `app-name`
-- Remaining path is forwarded to the app process
+Examples:
 
-Example:
-
+- `https://storefront.acme.apps.example.com/products/1`
+  - routes to app `acme/storefront`
+  - app receives path `/products/1`
 - `https://apps.example.com/acme/storefront/products/1`
   - routes to app `acme/storefront`
   - app receives path `/products/1`
 
 ### Custom domain (optional)
 
-If an app is bound to a custom domain, Caddy matches that host directly and routes to the same app without requiring `/org/app-name` path prefix.
+If an app is bound to a custom domain, Caddy matches that host directly and routes to the same app without requiring either the subdomain pattern or `/org/app-name` prefix.
 
 Example:
 
@@ -101,8 +99,8 @@ Rollback: switch `current` symlink back to a prior release and restart the same 
 `packages/server` provides `last-host-server` for SSH-invoked host actions:
 
 - `init --host-id <id> --hostname <name> [--root-dir /opt/last-host]`
-- `prepare-release --host-id <id> --org <org> --app <app> --release-id <id> --artifact <tar.gz> --entry-command \"node app/server.js\" --port <n> [--custom-domain <domain>]`
-- `activate-release --host-id <id> --org <org> --app <app> --release-id <id> [--custom-domain <domain>]`
+- `prepare-release --host-id <id> --org <org> --app <app> --release-id <id> --artifact <tar.gz> --entry-command \"node app/server.js\" --port <n> [--route-mode <subdomain|path|both>] [--base-path </path>] [--custom-domain <domain>]`
+- `activate-release --host-id <id> --org <org> --app <app> --release-id <id> [--route-mode <subdomain|path|both>] [--base-path </path>] [--custom-domain <domain>]`
 - `rollback --host-id <id> --org <org> --app <app> [--to-release-id <id>]`
 
 The runtime manages atomic `current` symlink switches, systemd unit reconciliation, Caddy config generation/reload, and SQLite runtime state updates.
@@ -122,7 +120,7 @@ From an app project directory:
 
 ```bash
 last-host build [--app <name>] [--output <artifact-path>]
-last-host deploy --org <org> --host <host> [--app <name>] [--custom-domain <domain>]
+last-host deploy --org <org> --host <host> [--app <name>] [--route-mode <subdomain|path|both>] [--base-path </path>] [--custom-domain <domain>]
 ```
 
 `deploy` builds/packages locally, uploads via SCP, then calls remote `last-host-server prepare-release` and `activate-release` over SSH.
@@ -135,5 +133,7 @@ Useful deploy flags/env:
 - `--ssh-key` / `LAST_HOST_SSH_KEY`
 - `--remote-root` / `LAST_HOST_REMOTE_ROOT` (default `/opt/last-host`)
 - `--remote-cli` / `LAST_HOST_REMOTE_CLI` (default `last-host-server`)
+- `--route-mode` / `LAST_HOST_ROUTE_MODE` (default `subdomain`)
+- `--base-path` / `LAST_HOST_BASE_PATH` (default `/<org>/<app>` when `route-mode` includes `path`)
 
 App name defaults from `package.json` `name` (scope stripped + normalized), overridable via `--app`.

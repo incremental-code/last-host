@@ -68,7 +68,22 @@ export const V2_MIGRATION = {
   ],
 };
 
-export const MIGRATIONS = [V1_MIGRATION, V2_MIGRATION];
+export const V3_MIGRATION = {
+  version: 3,
+  name: 'v3-routing',
+  statements: [
+    `CREATE TABLE IF NOT EXISTS app_routes (
+      app_id TEXT PRIMARY KEY,
+      route_mode TEXT NOT NULL DEFAULT 'subdomain' CHECK(route_mode IN ('subdomain', 'path', 'both')),
+      base_path TEXT NOT NULL DEFAULT '',
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+      FOREIGN KEY(app_id) REFERENCES apps(id)
+    )`,
+  ],
+};
+
+export const MIGRATIONS = [V1_MIGRATION, V2_MIGRATION, V3_MIGRATION];
 
 export function schemaStatementsForVersion(version = 1) {
   const migration = MIGRATIONS.find((item) => item.version === version);
