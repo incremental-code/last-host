@@ -2,6 +2,8 @@
 
 `last-host` is a VPS-hosted deployment target for `last-*` apps. v1 prioritizes simple, understandable operations over horizontal scale: one VPS, Node processes managed by systemd, Caddy for ingress/TLS, and SQLite for persistent state.
 
+**Start here:** [Onboarding guide](./ONBOARDING.md) for server installation, SSH authentication, client setup, and first deploy.
+
 ## Architecture overview (v1)
 
 - **Topology:** single Linux VPS
