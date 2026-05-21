@@ -1,0 +1,13 @@
+{
+  "private": true,
+  "name": "last-host-root",
+  "type": "module",
+  "workspaces": [
+    "packages/shared",
+    "packages/server",
+    "packages/cli"
+  ],
+  "scripts": {
+    "test": "npm --workspaces --if-present test"
+  }
+}

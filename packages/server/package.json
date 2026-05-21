@@ -1,0 +1,19 @@
+{
+  "name": "@incremental-code/last-host-server",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "last-host-server": "./bin/last-host-server.js"
+  },
+  "main": "./src/index.js",
+  "exports": {
+    ".": "./src/index.js"
+  },
+  "scripts": {
+    "test": "node --test \"src/tests/*.test.js\""
+  },
+  "dependencies": {
+    "@incremental-code/last-host-shared": "file:../shared"
+  }
+}
