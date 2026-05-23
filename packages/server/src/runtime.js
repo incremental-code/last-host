@@ -91,7 +91,7 @@ export function createHostRuntime({ rootDir = '/opt/last-host', store, shell, fs
     return { changed: true };
   }
 
-  async function writeSystemdUnit({ serviceName, appDir, entryCommand }) {
+  async function writeSystemdUnit({ serviceName, appDir, entryCommand, port, envFilePath }) {
     const unitPath = `/etc/systemd/system/${serviceName}.service`;
     const unit = `[Unit]
 Description=last-host app ${serviceName}
@@ -101,6 +101,8 @@ After=network.target
 Type=simple
 WorkingDirectory=${path.join(appDir, 'current')}
 ExecStart=${entryCommand}
+Environment=PORT=${port}
+EnvironmentFile=-${envFilePath}
 Restart=always
 RestartSec=2
 
@@ -187,6 +189,10 @@ WantedBy=multi-user.target
         : normalizeBasePath(basePath, { org: normalizedOrg, app: normalizedApp });
       await ops.mkdir(release.releaseDir, { recursive: true });
       await shell.run('tar', ['-xzf', artifactPath, '-C', release.releaseDir]);
+
+      const appRecord = await store.upsertApp({ org: normalizedOrg, app: normalizedApp, hostId });
+      const allocatedPort = port || await store.allocatePort(appRecord.id);
+
       await ops.writeFile(
         path.join(release.releaseDir, 'metadata.json'),
         JSON.stringify({
@@ -194,7 +200,7 @@ WantedBy=multi-user.target
           app: normalizedApp,
           releaseId: release.releaseId,
           entryCommand,
-          port,
+          port: allocatedPort,
           healthPath,
           routeMode: normalizedRouteMode,
           basePath: normalizedBasePath,
@@ -202,10 +208,9 @@ WantedBy=multi-user.target
         'utf8',
       );
 
-      const appRecord = await store.upsertApp({ org: normalizedOrg, app: normalizedApp, hostId });
       const effectiveCustomDomain = customDomain ?? (await store.getCustomDomain?.(appRecord.id));
       const serviceName = `last-host-${normalizedOrg}-${normalizedApp}`;
-      await store.upsertRuntime({ appId: appRecord.id, entryCommand, port, healthPath, serviceName });
+      await store.upsertRuntime({ appId: appRecord.id, entryCommand, port: allocatedPort, healthPath, serviceName });
       await store.upsertRouting({
         appId: appRecord.id,
         routeMode: normalizedRouteMode,
@@ -220,7 +225,7 @@ WantedBy=multi-user.target
         customDomain: effectiveCustomDomain || '',
       });
 
-      return { appId: appRecord.id, releaseId: release.releaseId, serviceName };
+      return { appId: appRecord.id, releaseId: release.releaseId, serviceName, port: allocatedPort };
     },
 
     async activateRelease({ hostId, org, app, releaseId, customDomain, routeMode = '', basePath = '' }) {
@@ -242,7 +247,8 @@ WantedBy=multi-user.target
       const release = releasePaths(appDir, releaseId);
       await switchCurrentSymlink({ appDir, releaseId: release.releaseId });
 
-      await writeSystemdUnit({ serviceName: runtime.service_name, appDir, entryCommand: runtime.entry_command });
+      const envFilePath = path.join(appDir, 'shared', 'config', '.env');
+      await writeSystemdUnit({ serviceName: runtime.service_name, appDir, entryCommand: runtime.entry_command, port: runtime.port, envFilePath });
       await store.setActiveRelease({ appId: appRecord.id, releaseId: release.releaseId });
       await store.upsertRouting({
         appId: appRecord.id,
@@ -286,6 +292,53 @@ WantedBy=multi-user.target
       const releaseId = toReleaseId || (await store.findRollbackRelease(appRecord.id, runtime.active_release_id));
       if (!releaseId) throw new Error('no rollback target found');
       return this.activateRelease({ hostId, org: normalizedOrg, app: normalizedApp, releaseId });
+    },
+
+    async setEnv({ org, app, vars = {} }) {
+      const normalizedOrg = normalizeOrgName(org);
+      const normalizedApp = normalizeAppName(app);
+      const appRecord = await store.getApp(normalizedOrg, normalizedApp);
+      if (!appRecord) throw new Error(`app not found: ${normalizedOrg}/${normalizedApp}`);
+      await store.setEnvVars({ appId: appRecord.id, vars });
+      await this.writeEnvFile({ org: normalizedOrg, app: normalizedApp });
+      return { appId: appRecord.id, count: Object.keys(vars).length };
+    },
+
+    async unsetEnv({ org, app, keys = [] }) {
+      const normalizedOrg = normalizeOrgName(org);
+      const normalizedApp = normalizeAppName(app);
+      const appRecord = await store.getApp(normalizedOrg, normalizedApp);
+      if (!appRecord) throw new Error(`app not found: ${normalizedOrg}/${normalizedApp}`);
+      await store.deleteEnvVars({ appId: appRecord.id, keys });
+      await this.writeEnvFile({ org: normalizedOrg, app: normalizedApp });
+      return { appId: appRecord.id, removed: keys.length };
+    },
+
+    async getEnv({ org, app }) {
+      const normalizedOrg = normalizeOrgName(org);
+      const normalizedApp = normalizeAppName(app);
+      const appRecord = await store.getApp(normalizedOrg, normalizedApp);
+      if (!appRecord) throw new Error(`app not found: ${normalizedOrg}/${normalizedApp}`);
+      const rows = await store.getEnvVars(appRecord.id);
+      return Object.fromEntries(rows.map((r) => [r.key, r.value]));
+    },
+
+    async writeEnvFile({ org, app }) {
+      const normalizedOrg = normalizeOrgName(org);
+      const normalizedApp = normalizeAppName(app);
+      const appRecord = await store.getApp(normalizedOrg, normalizedApp);
+      if (!appRecord) return;
+      const rows = await store.getEnvVars(appRecord.id);
+      const appDir = appRoot(normalizedOrg, normalizedApp);
+      const envFilePath = path.join(appDir, 'shared', 'config', '.env');
+      const lines = rows.map((r) => {
+        const needsQuoting = /[\n\r"' \t\\]/.test(r.value);
+        const escaped = needsQuoting ? `"${r.value.replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\n/g, '\\n')}"` : r.value;
+        return `${r.key}=${escaped}`;
+      });
+      const content = lines.join('\n') + (lines.length ? '\n' : '');
+      await ops.mkdir(path.join(appDir, 'shared', 'config'), { recursive: true });
+      await ops.writeFile(envFilePath, content, 'utf8');
     },
   };
 }

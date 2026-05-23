@@ -83,7 +83,25 @@ export const V3_MIGRATION = {
   ],
 };
 
-export const MIGRATIONS = [V1_MIGRATION, V2_MIGRATION, V3_MIGRATION];
+export const V4_MIGRATION = {
+  version: 4,
+  name: 'v4-port-allocation-and-env',
+  statements: [
+    `CREATE UNIQUE INDEX IF NOT EXISTS idx_app_runtime_port
+      ON app_runtime(port)`,
+    `CREATE TABLE IF NOT EXISTS app_env (
+      app_id TEXT NOT NULL,
+      key TEXT NOT NULL,
+      value TEXT NOT NULL DEFAULT '',
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+      PRIMARY KEY(app_id, key),
+      FOREIGN KEY(app_id) REFERENCES apps(id)
+    )`,
+  ],
+};
+
+export const MIGRATIONS = [V1_MIGRATION, V2_MIGRATION, V3_MIGRATION, V4_MIGRATION];
 
 export function schemaStatementsForVersion(version = 1) {
   const migration = MIGRATIONS.find((item) => item.version === version);

@@ -51,7 +51,7 @@ export async function runCli(argv, { shell = createShellRunner() } = {}) {
       releaseId: flags['release-id'],
       artifactPath: flags.artifact,
       entryCommand: flags['entry-command'] || 'node app/server.js',
-      port: Number(flags.port || 3000),
+      port: flags.port ? Number(flags.port) : 0,
       healthPath: flags['health-path'] || '/health',
       customDomain: flags['custom-domain'],
       routeMode: flags['route-mode'] || '',
@@ -84,6 +84,30 @@ export async function runCli(argv, { shell = createShellRunner() } = {}) {
     });
     printResult(result);
     return result;
+  }
+
+  if (command === 'set-env') {
+    const vars = {};
+    for (const [key, value] of Object.entries(flags)) {
+      if (key === 'org' || key === 'app' || key === 'root-dir' || key === 'db-path') continue;
+      vars[key.toUpperCase().replaceAll('-', '_')] = value;
+    }
+    const result = await runtime.setEnv({ org: flags.org, app: flags.app, vars });
+    printResult({ status: 'ok', ...result });
+    return result;
+  }
+
+  if (command === 'unset-env') {
+    const keys = (flags.keys || '').split(',').map((k) => k.trim()).filter(Boolean);
+    const result = await runtime.unsetEnv({ org: flags.org, app: flags.app, keys });
+    printResult({ status: 'ok', ...result });
+    return result;
+  }
+
+  if (command === 'get-env') {
+    const vars = await runtime.getEnv({ org: flags.org, app: flags.app });
+    printResult(vars);
+    return vars;
   }
 
   throw new Error(`unknown command: ${command || '(empty)'}`);

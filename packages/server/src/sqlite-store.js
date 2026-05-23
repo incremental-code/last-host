@@ -147,6 +147,36 @@ export function createSqliteStore({ dbPath, shell }) {
       return rows[0]?.id || null;
     },
 
+    async allocatePort(appId, startPort = 3001) {
+      const existing = await queryRows(
+        `SELECT port FROM app_runtime WHERE app_id=${sqlString(appId)} LIMIT 1`,
+      );
+      if (existing.length > 0) return existing[0].port;
+
+      const rows = await queryRows(
+        `SELECT COALESCE(MAX(port), ${sqlInt(startPort) - 1}) + 1 AS nextPort FROM app_runtime`,
+      );
+      return rows[0]?.nextPort || startPort;
+    },
+
+    async setEnvVars({ appId, vars = {} }) {
+      for (const [key, value] of Object.entries(vars)) {
+        await run(`INSERT INTO app_env(app_id, key, value, updated_at)
+          VALUES (${sqlString(appId)}, ${sqlString(key)}, ${sqlString(value)}, datetime('now'))
+          ON CONFLICT(app_id, key) DO UPDATE SET value=excluded.value, updated_at=datetime('now')`);
+      }
+    },
+
+    async deleteEnvVars({ appId, keys = [] }) {
+      for (const key of keys) {
+        await run(`DELETE FROM app_env WHERE app_id=${sqlString(appId)} AND key=${sqlString(key)}`);
+      }
+    },
+
+    async getEnvVars(appId) {
+      return queryRows(`SELECT key, value FROM app_env WHERE app_id=${sqlString(appId)} ORDER BY key`);
+    },
+
     async listCaddyApps(hostId) {
       return queryRows(`SELECT a.org, a.app, r.port,
         COALESCE(ar.route_mode, 'subdomain') AS route_mode,
