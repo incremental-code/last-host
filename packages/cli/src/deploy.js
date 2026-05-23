@@ -71,7 +71,7 @@ export async function deployApp({
   const sshKey = flags['ssh-key'] || env.LAST_HOST_SSH_KEY || '';
   const remoteRoot = flags['remote-root'] || env.LAST_HOST_REMOTE_ROOT || '/opt/last-host';
   const remoteCli = flags['remote-cli'] || env.LAST_HOST_REMOTE_CLI || 'last-host-server';
-  const entryCommand = flags['entry-command'] || env.LAST_HOST_ENTRY_COMMAND || 'node app/server.js';
+  const entryCommand = flags['entry-command'] || env.LAST_HOST_ENTRY_COMMAND || 'npm start';
   const appPort = Number(flags.port || env.LAST_HOST_APP_PORT || 3000);
   const healthPath = flags['health-path'] || env.LAST_HOST_HEALTH_PATH || '/health';
   const customDomain = (flags['custom-domain'] || '').trim().toLowerCase();
