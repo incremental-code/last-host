@@ -130,6 +130,7 @@ test('prepare + activate release calls tar, systemctl and caddy reload via shell
 
   assert.equal(result.status, 'ok');
   assert.equal(shell.calls.some((c) => c.command === 'tar'), true);
+  assert.equal(shell.calls.some((c) => c.command === 'npm' && c.args?.includes('install')), true);
   assert.equal(shell.calls.some((c) => c.args?.includes('systemctl')), true);
   assert.equal(shell.calls.some((c) => c.args?.includes('caddy')), true);
   assert.equal(files.some((f) => f.file.endsWith('/caddy/Caddyfile')), true);

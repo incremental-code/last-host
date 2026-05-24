@@ -189,10 +189,10 @@ WantedBy=multi-user.target
         : normalizeBasePath(basePath, { org: normalizedOrg, app: normalizedApp });
       await ops.mkdir(release.releaseDir, { recursive: true });
       await shell.run('tar', ['-xzf', artifactPath, '-C', release.releaseDir]);
+      await shell.run('npm', ['install', '--omit=dev'], { cwd: release.releaseDir });
 
       const appRecord = await store.upsertApp({ org: normalizedOrg, app: normalizedApp, hostId });
       const allocatedPort = port || await store.allocatePort(appRecord.id);
-
       await ops.writeFile(
         path.join(release.releaseDir, 'metadata.json'),
         JSON.stringify({
