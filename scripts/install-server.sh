@@ -32,7 +32,7 @@ if [[ "${EUID}" -ne 0 ]]; then
 fi
 
 if ! command -v apt >/dev/null 2>&1; then
-  echo "Unsupported distribution: apt is required for this installer." >&2
+  echo "Unsupported distribution: apt is required for this installer. For other distributions, use manual installation in ONBOARDING_SERVER.md." >&2
   exit 1
 fi
 
@@ -71,10 +71,10 @@ fi
 sudo -u deploy npm --prefix "${SOURCE_DIR}" install
 sudo -u deploy npm --prefix "${SOURCE_DIR}" link --workspace packages/server
 
-install_path="$(sudo -u deploy bash -lc "command -v last-host-server || true")"
+server_command_path="$(sudo -u deploy bash -lc "command -v last-host-server || true")"
 echo "Server runtime installed. This uses npm link for the deploy user (global symlink)."
-if [[ -n "${install_path}" ]]; then
-  echo "Verified last-host-server at: ${install_path}"
+if [[ -n "${server_command_path}" ]]; then
+  echo "Verified last-host-server at: ${server_command_path}"
 else
   echo "Warning: last-host-server was not found in deploy user PATH." >&2
 fi
