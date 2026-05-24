@@ -20,9 +20,7 @@ CLI must provide (flags, env, or embedded metadata):
 - `entryCommand` (node start command)
 - `port` (optional; auto-allocated from 3001 if omitted, reuses existing port on redeploy)
 - `healthPath` (default `/health`)
-- `routeMode` (`subdomain`, `path`, or `both`; default `subdomain`)
-- `basePath` (optional; defaults to `/<org>/<app>` when `routeMode` includes `path`)
-- `customDomain` (optional)
+- `url` (single public URL; defaults to the generated subdomain URL when omitted)
 
 ## Host-side actions
 
@@ -32,7 +30,7 @@ Host deploy command consumes the fields above and must:
 2. Atomically switch `current` symlink
 3. Ensure `last-host-<org>-<app>.service` points at `current`
 4. Restart service and run health check
-5. Update Caddy route map for subdomain routing, path routing, and optional custom domain
+5. Update Caddy route map for exactly one public URL
 
 ## Result contract
 
@@ -40,10 +38,7 @@ On success, host emits:
 
 - `status=ok`
 - `activeReleaseId=<releaseId>`
-- `defaultUrl=<primary deploy URL>`
-- `subdomainUrl=<optional>`
-- `pathUrl=<optional>`
-- `customUrl=<optional>`
+- `url=<deploy URL>`
 
 On failure, host emits:
 

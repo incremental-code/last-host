@@ -101,8 +101,8 @@ Rollback: switch `current` symlink back to a prior release and restart the same 
 `packages/server` provides `last-host-server` for SSH-invoked host actions:
 
 - `init --host-id <id> --hostname <name> [--root-dir /opt/last-host]`
-- `prepare-release --host-id <id> --org <org> --app <app> --release-id <id> --artifact <tar.gz> --entry-command "node app/server.js" [--port <n>] [--route-mode <subdomain|path|both>] [--base-path </path>] [--custom-domain <domain>]`
-- `activate-release --host-id <id> --org <org> --app <app> --release-id <id> [--route-mode <subdomain|path|both>] [--base-path </path>] [--custom-domain <domain>]`
+- `prepare-release --host-id <id> --org <org> --app <app> --release-id <id> --artifact <tar.gz> --entry-command "node app/server.js" [--port <n>] [--url <public-url>]`
+- `activate-release --host-id <id> --org <org> --app <app> --release-id <id> [--url <public-url>]`
 - `rollback --host-id <id> --org <org> --app <app> [--to-release-id <id>]`
 - `set-env --org <org> --app <app> --<KEY> <value> [--<KEY2> <value2> ...]`
 - `unset-env --org <org> --app <app> --keys <KEY1,KEY2,...>`
@@ -136,7 +136,7 @@ From an app project directory:
 
 ```bash
 last-host build [--app <name>] [--output <artifact-path>]
-last-host deploy --org <org> --host <host> [--app <name>] [--route-mode <subdomain|path|both>] [--base-path </path>] [--custom-domain <domain>] [--env-file <path>]
+last-host deploy --org <org> --host <host> [--app <name>] [--url <public-url>] [--env-file <path>]
 ```
 
 `deploy` builds/packages locally, uploads via SCP, then calls remote `last-host-server prepare-release` and `activate-release` over SSH.
@@ -149,8 +149,7 @@ Useful deploy flags/env:
 - `--ssh-key` / `LAST_HOST_SSH_KEY`
 - `--remote-root` / `LAST_HOST_REMOTE_ROOT` (default `/opt/last-host`)
 - `--remote-cli` / `LAST_HOST_REMOTE_CLI` (default `last-host-server`)
-- `--route-mode` / `LAST_HOST_ROUTE_MODE` (default `subdomain`)
-- `--base-path` / `LAST_HOST_BASE_PATH` (default `/<org>/<app>` when `route-mode` includes `path`)
+- `--url` / `LAST_HOST_URL` — single public URL for the app; defaults to the generated subdomain URL
 - `--env-file` — path to a local `.env` file to upload to the app's shared config
 
 App name defaults from `package.json` `name` (scope stripped + normalized), overridable via `--app`.

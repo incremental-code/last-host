@@ -2,16 +2,16 @@ import path from 'node:path';
 import { access, mkdir, readlink, rename, symlink, writeFile } from 'node:fs/promises';
 import {
   appCanonicalId,
-  defaultRoutePath,
   defaultRouteHost,
-  normalizeBasePath,
   normalizeAppName,
   normalizeOrgName,
   normalizeHostName,
   normalizeRouteMode,
+  publicUrlForRoute,
   releaseLayout,
   releasePaths,
   renderCaddyConfig,
+  resolveRouteFromUrl,
 } from '@incremental-code/last-host-shared';
 
 export function hostPaths(rootDir = '/opt/last-host') {
@@ -136,23 +136,25 @@ WantedBy=multi-user.target
     await shell.run('sudo', ['caddy', 'reload', '--config', paths.caddyfilePath]);
   }
 
-  function routeUrls({ host, org, app, routeMode, basePath }) {
-    const normalizedHost = normalizeHostName(host);
+  function resolveRoute({ url = '', host, org, app, routeMode = 'subdomain', basePath = '', customDomain = '' }) {
+    if (url) {
+      return resolveRouteFromUrl({ url, host, org, app });
+    }
+
     const normalizedRouteMode = normalizeRouteMode(routeMode);
-    const normalizedBasePath = normalizeBasePath(basePath, { org, app });
-    const urls = {
-      subdomainUrl:
-        normalizedRouteMode === 'subdomain' || normalizedRouteMode === 'both'
-          ? `https://${defaultRouteHost({ host, org, app })}`
-          : '',
-      pathUrl:
-        normalizedRouteMode === 'path' || normalizedRouteMode === 'both'
-          ? `https://${normalizedHost}${normalizedBasePath}`
-          : '',
-    };
+    const normalizedCustomDomain = customDomain ? customDomain.trim().toLowerCase() : '';
     return {
-      ...urls,
-      defaultUrl: normalizedRouteMode === 'path' ? urls.pathUrl : urls.subdomainUrl,
+      routeMode: normalizedRouteMode,
+      basePath: normalizedRouteMode === 'path' ? basePath : '',
+      customDomain: normalizedRouteMode === 'custom' ? normalizedCustomDomain : normalizedCustomDomain,
+      url: publicUrlForRoute({
+        host,
+        org,
+        app,
+        routeMode: normalizedRouteMode,
+        basePath,
+        customDomain: normalizedCustomDomain,
+      }),
     };
   }
 
@@ -175,6 +177,7 @@ WantedBy=multi-user.target
       entryCommand,
       port,
       healthPath = '/health',
+      url = '',
       customDomain,
       routeMode = 'subdomain',
       basePath = '',
@@ -183,10 +186,15 @@ WantedBy=multi-user.target
       const { root, normalizedOrg, normalizedApp } = await ensureAppDirs(org, app);
       const host = (await store.getHostById(hostId)) || { hostname: hostId };
       const release = releasePaths(root, releaseId);
-      const normalizedRouteMode = normalizeRouteMode(routeMode);
-      const normalizedBasePath = normalizedRouteMode === 'subdomain'
-        ? ''
-        : normalizeBasePath(basePath, { org: normalizedOrg, app: normalizedApp });
+      const resolvedRoute = resolveRoute({
+        url,
+        host: host.hostname,
+        org: normalizedOrg,
+        app: normalizedApp,
+        routeMode,
+        basePath,
+        customDomain,
+      });
       await ops.mkdir(release.releaseDir, { recursive: true });
       await shell.run('tar', ['-xzf', artifactPath, '-C', release.releaseDir]);
       await shell.run('npm', ['install', '--omit=dev'], { cwd: release.releaseDir });
@@ -202,19 +210,19 @@ WantedBy=multi-user.target
           entryCommand,
           port: allocatedPort,
           healthPath,
-          routeMode: normalizedRouteMode,
-          basePath: normalizedBasePath,
+          routeMode: resolvedRoute.routeMode,
+          basePath: resolvedRoute.basePath,
+          url: resolvedRoute.url,
         }, null, 2),
         'utf8',
       );
 
-      const effectiveCustomDomain = customDomain ?? (await store.getCustomDomain?.(appRecord.id));
       const serviceName = `last-host-${normalizedOrg}-${normalizedApp}`;
       await store.upsertRuntime({ appId: appRecord.id, entryCommand, port: allocatedPort, healthPath, serviceName });
       await store.upsertRouting({
         appId: appRecord.id,
-        routeMode: normalizedRouteMode,
-        basePath: normalizedBasePath,
+        routeMode: resolvedRoute.routeMode,
+        basePath: resolvedRoute.basePath,
         org: normalizedOrg,
         app: normalizedApp,
       });
@@ -222,13 +230,13 @@ WantedBy=multi-user.target
       await store.setDomains({
         appId: appRecord.id,
         defaultDomain: defaultRouteHost({ host: host.hostname, org: normalizedOrg, app: normalizedApp }),
-        customDomain: effectiveCustomDomain || '',
+        customDomain: resolvedRoute.customDomain || '',
       });
 
       return { appId: appRecord.id, releaseId: release.releaseId, serviceName, port: allocatedPort };
     },
 
-    async activateRelease({ hostId, org, app, releaseId, customDomain, routeMode = '', basePath = '' }) {
+    async activateRelease({ hostId, org, app, releaseId, url = '', customDomain, routeMode = '', basePath = '' }) {
       const normalizedOrg = normalizeOrgName(org);
       const normalizedApp = normalizeAppName(app);
       const appRecord = await store.getApp(normalizedOrg, normalizedApp);
@@ -237,11 +245,16 @@ WantedBy=multi-user.target
       const runtime = await store.getRuntime(appRecord.id);
       if (!runtime) throw new Error(`runtime not found for ${normalizedOrg}/${normalizedApp}`);
       const routing = await store.getRouting?.(appRecord.id);
-      const normalizedRouteMode = normalizeRouteMode(routeMode || routing?.route_mode || 'subdomain');
-      const normalizedBasePath = normalizedRouteMode === 'subdomain'
-        ? ''
-        : normalizeBasePath(basePath || routing?.base_path || '', { org: normalizedOrg, app: normalizedApp });
       const effectiveCustomDomain = customDomain ?? (await store.getCustomDomain?.(appRecord.id)) ?? '';
+      const resolvedRoute = resolveRoute({
+        url,
+        host: host.hostname,
+        org: normalizedOrg,
+        app: normalizedApp,
+        routeMode: routeMode || routing?.route_mode || 'subdomain',
+        basePath: basePath || routing?.base_path || '',
+        customDomain: effectiveCustomDomain,
+      });
 
       const appDir = appRoot(normalizedOrg, normalizedApp);
       const release = releasePaths(appDir, releaseId);
@@ -252,32 +265,22 @@ WantedBy=multi-user.target
       await store.setActiveRelease({ appId: appRecord.id, releaseId: release.releaseId });
       await store.upsertRouting({
         appId: appRecord.id,
-        routeMode: normalizedRouteMode,
-        basePath: normalizedBasePath,
+        routeMode: resolvedRoute.routeMode,
+        basePath: resolvedRoute.basePath,
         org: normalizedOrg,
         app: normalizedApp,
       });
       await store.setDomains({
         appId: appRecord.id,
         defaultDomain: defaultRouteHost({ host: host.hostname, org: normalizedOrg, app: normalizedApp }),
-        customDomain: effectiveCustomDomain,
+        customDomain: resolvedRoute.customDomain,
       });
       await renderAndReloadCaddy({ hostId });
 
-      const urls = routeUrls({
-        host: host.hostname,
-        org: normalizedOrg,
-        app: normalizedApp,
-        routeMode: normalizedRouteMode,
-        basePath: normalizedBasePath || defaultRoutePath({ org: normalizedOrg, app: normalizedApp }),
-      });
       return {
         status: 'ok',
         activeReleaseId: release.releaseId,
-        defaultUrl: urls.defaultUrl,
-        subdomainUrl: urls.subdomainUrl,
-        pathUrl: urls.pathUrl,
-        customUrl: effectiveCustomDomain ? `https://${effectiveCustomDomain}` : '',
+        url: resolvedRoute.url,
       };
     },
 

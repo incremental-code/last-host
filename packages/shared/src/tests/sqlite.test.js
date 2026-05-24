@@ -1,10 +1,12 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  MIGRATIONS,
   V1_MIGRATION,
   V2_MIGRATION,
   V3_MIGRATION,
   V4_MIGRATION,
+  V5_MIGRATION,
   latestSchemaVersion,
   migrate,
   schemaStatementsForVersion,
@@ -40,7 +42,7 @@ test('migrate executes statements and inserts migration record', async () => {
   });
   assert.equal(
     calls.length,
-    V1_MIGRATION.statements.length + V2_MIGRATION.statements.length + V3_MIGRATION.statements.length + V4_MIGRATION.statements.length + 4,
+    MIGRATIONS.reduce((count, migration) => count + migration.statements.length + 1, 0),
   );
   assert.match(calls.at(-1), /INSERT OR REPLACE INTO schema_migrations/);
 });
@@ -53,7 +55,10 @@ test('migrate only runs newer migrations', async () => {
     },
     fromVersion: 1,
   });
-  assert.equal(calls.length, V2_MIGRATION.statements.length + V3_MIGRATION.statements.length + V4_MIGRATION.statements.length + 3);
+  assert.equal(
+    calls.length,
+    MIGRATIONS.filter((migration) => migration.version > 1).reduce((count, migration) => count + migration.statements.length + 1, 0),
+  );
   assert.match(calls.at(0), /CREATE TABLE IF NOT EXISTS app_runtime/);
 });
 
@@ -68,10 +73,16 @@ test('v4 migration includes port unique index and env table', () => {
   assert.match(sql, /CREATE TABLE IF NOT EXISTS app_env/);
 });
 
+test('v5 migration expands route mode support to custom', () => {
+  const sql = V5_MIGRATION.statements.join('\n');
+  assert.match(sql, /CHECK\(route_mode IN \('subdomain', 'path', 'custom', 'both'\)\)/);
+  assert.match(sql, /ALTER TABLE app_routes RENAME TO app_routes_v3_backup/);
+});
+
 test('migrate rejects non-function execute', async () => {
   await assert.rejects(() => migrate({ execute: null }), /execute must be a function/);
 });
 
 test('latest schema version reports migration max', () => {
-  assert.equal(latestSchemaVersion(), 4);
+  assert.equal(latestSchemaVersion(), 5);
 });

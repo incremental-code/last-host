@@ -171,7 +171,7 @@ test('activate release supports path routing on the base host', async () => {
     artifactPath: '/artifact.tar.gz',
     entryCommand: 'node app/server.js',
     port: 3200,
-    routeMode: 'path',
+    url: 'https://lastjs.org/demo/ecommerce',
   });
 
   const result = await runtime.activateRelease({
@@ -179,17 +179,15 @@ test('activate release supports path routing on the base host', async () => {
     org: 'demo',
     app: 'ecommerce',
     releaseId: 'r1',
-    routeMode: 'path',
+    url: 'https://lastjs.org/demo/ecommerce',
   });
 
-  assert.equal(result.defaultUrl, 'https://lastjs.org/demo/ecommerce');
-  assert.equal(result.pathUrl, 'https://lastjs.org/demo/ecommerce');
-  assert.equal(result.subdomainUrl, '');
+  assert.equal(result.url, 'https://lastjs.org/demo/ecommerce');
   const caddyfile = files.find((f) => f.file.endsWith('/caddy/Caddyfile'));
   assert.match(caddyfile.content, /lastjs\.org \{\n  handle_path \/demo\/ecommerce\*/);
 });
 
-test('activate release renders custom domain route', async () => {
+test('activate release renders a custom-only domain route', async () => {
   const shell = createMockShell();
   const store = createMockStore();
   const files = [];
@@ -217,10 +215,19 @@ test('activate release renders custom domain route', async () => {
     artifactPath: '/artifact.tar.gz',
     entryCommand: 'node app/server.js',
     port: 3100,
-    customDomain: 'Shop.Acme.com',
+    url: 'https://Shop.Acme.com',
   });
-  await runtime.activateRelease({ hostId: 'edge-a', org: 'acme', app: 'shop', releaseId: 'r1', customDomain: 'Shop.Acme.com' });
+  const result = await runtime.activateRelease({
+    hostId: 'edge-a',
+    org: 'acme',
+    app: 'shop',
+    releaseId: 'r1',
+    url: 'https://Shop.Acme.com',
+  });
+
+  assert.equal(result.url, 'https://shop.acme.com');
   const caddyfile = files.find((f) => f.file.endsWith('/caddy/Caddyfile'));
+  assert.doesNotMatch(caddyfile.content, /shop\.acme\.edge-a/);
   assert.match(caddyfile.content, /shop\.acme\.com/);
 });
 

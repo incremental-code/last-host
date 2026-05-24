@@ -1,6 +1,6 @@
 {
   "name": "@incremental-code/last-host-shared",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "description": "Shared helpers for naming, release paths, SQLite migrations, and Caddy config in last-host.",
   "type": "module",
   "main": "./src/index.js",

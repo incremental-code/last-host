@@ -44,7 +44,7 @@ From an app project directory:
 last-host deploy --org demo --app ecommerce --host lastjs.org --ssh-user deploy --ssh-key ~/.ssh/last_host_deploy
 ```
 
-Useful routing examples:
+Useful URL examples:
 
 ### Path-based route
 
@@ -53,7 +53,7 @@ last-host deploy \
   --org demo \
   --app ecommerce \
   --host lastjs.org \
-  --route-mode path \
+  --url https://lastjs.org/demo/ecommerce \
   --ssh-user deploy \
   --ssh-key ~/.ssh/last_host_deploy
 ```
@@ -71,7 +71,7 @@ last-host deploy \
   --org demo \
   --app ecommerce \
   --host lastjs.org \
-  --route-mode subdomain \
+  --url https://ecommerce.demo.lastjs.org \
   --ssh-user deploy \
   --ssh-key ~/.ssh/last_host_deploy
 ```
@@ -82,23 +82,20 @@ Result:
 https://ecommerce.demo.lastjs.org
 ```
 
-### Both default routes plus a custom domain
+### Custom domain route
 
 ```bash
 last-host deploy \
   --org demo \
   --app ecommerce \
   --host lastjs.org \
-  --route-mode both \
-  --custom-domain shop.example.com \
+  --url https://shop.example.com \
   --ssh-user deploy \
   --ssh-key ~/.ssh/last_host_deploy
 ```
 
-Results:
+Result:
 
 ```text
-https://lastjs.org/demo/ecommerce
-https://ecommerce.demo.lastjs.org
 https://shop.example.com
 ```

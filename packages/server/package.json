@@ -1,6 +1,6 @@
 {
   "name": "@incremental-code/last-host-server",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "description": "Host runtime CLI for deploying and managing last-host releases.",
   "type": "module",
   "bin": {
@@ -39,6 +39,6 @@
     "test": "node --test \"src/tests/*.test.js\""
   },
   "dependencies": {
-    "@incremental-code/last-host-shared": "^0.0.3"
+    "@incremental-code/last-host-shared": "^0.0.4"
   }
 }

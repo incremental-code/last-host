@@ -1,6 +1,6 @@
 {
   "name": "@incremental-code/last-host-cli",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "description": "Client CLI for building and deploying apps to last-host.",
   "type": "module",
   "bin": {
@@ -36,6 +36,6 @@
     "test": "node --test \"src/tests/*.test.js\""
   },
   "dependencies": {
-    "@incremental-code/last-host-shared": "^0.0.3"
+    "@incremental-code/last-host-shared": "^0.0.4"
   }
 }

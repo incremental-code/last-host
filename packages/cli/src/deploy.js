@@ -1,12 +1,9 @@
 import path from 'node:path';
 import {
-  defaultRoutePath,
-  defaultRouteHost,
-  normalizeBasePath,
   normalizeHostName,
   normalizeOrgName,
-  normalizeRouteMode,
-  validateRouteMode,
+  publicUrlForRoute,
+  resolveRouteFromUrl,
   validateHostName,
   validateOrgName,
 } from '@incremental-code/last-host-shared';
@@ -47,6 +44,23 @@ function scpCommonArgs({ sshPort, sshKey }) {
   return args;
 }
 
+function resolveLegacyRoute({ flags, env, host, org, app }) {
+  const customDomain = (flags['custom-domain'] || '').trim().toLowerCase();
+  const routeMode = typeof (flags['route-mode'] || env.LAST_HOST_ROUTE_MODE || 'subdomain') === 'string'
+    ? (flags['route-mode'] || env.LAST_HOST_ROUTE_MODE || 'subdomain').trim().toLowerCase()
+    : 'subdomain';
+  const basePath = routeMode === 'path'
+    ? (flags['base-path'] || env.LAST_HOST_BASE_PATH || '')
+    : '';
+
+  return {
+    routeMode,
+    basePath,
+    customDomain,
+    url: publicUrlForRoute({ host, org, app, routeMode, basePath, customDomain }),
+  };
+}
+
 export async function deployApp({
   cwd,
   flags,
@@ -73,12 +87,7 @@ export async function deployApp({
   const remoteCli = flags['remote-cli'] || env.LAST_HOST_REMOTE_CLI || 'last-host-server';
   const entryCommand = flags['entry-command'] || env.LAST_HOST_ENTRY_COMMAND || 'npm start';
   const healthPath = flags['health-path'] || env.LAST_HOST_HEALTH_PATH || '/health';
-  const customDomain = (flags['custom-domain'] || '').trim().toLowerCase();
   const envFile = flags['env-file'] || '';
-  const rawRouteMode = flags['route-mode'] || env.LAST_HOST_ROUTE_MODE || 'subdomain';
-  const routeValidation = validateRouteMode(rawRouteMode);
-  if (!routeValidation.ok) throw new Error(routeValidation.error);
-  const routeMode = normalizeRouteMode(rawRouteMode);
 
   const built = await buildArtifact({
     cwd,
@@ -90,9 +99,10 @@ export async function deployApp({
 
   const remoteDir = path.posix.join(remoteRoot, 'deploy', 'incoming', org, built.app);
   const remoteArtifact = path.posix.join(remoteDir, `${built.releaseId}.tar.gz`);
-  const basePath = routeMode === 'subdomain'
-    ? ''
-    : normalizeBasePath(flags['base-path'] || env.LAST_HOST_BASE_PATH || '', { org, app: built.app });
+  const publicHost = normalizeHostName(sshHost || host);
+  const route = flags.url || env.LAST_HOST_URL
+    ? resolveRouteFromUrl({ url: flags.url || env.LAST_HOST_URL || '', host: publicHost, org, app: built.app })
+    : resolveLegacyRoute({ flags, env, host: publicHost, org, app: built.app });
 
   const sshArgs = sshCommonArgs({ sshUser, sshHost, sshPort, sshKey });
   const scpArgs = scpCommonArgs({ sshPort, sshKey });
@@ -118,15 +128,9 @@ export async function deployApp({
     entryCommand,
     '--health-path',
     healthPath,
-    '--route-mode',
-    routeMode,
+    '--url',
+    route.url,
   ];
-  if (basePath) {
-    prepareCommand.push('--base-path', basePath);
-  }
-  if (customDomain) {
-    prepareCommand.push('--custom-domain', customDomain);
-  }
 
   const prepareResult = parseKeyValue(
     (await shell.run('ssh', [...sshArgs, commandString(prepareCommand)], { cwd })).stdout,
@@ -154,15 +158,9 @@ export async function deployApp({
     built.app,
     '--release-id',
     built.releaseId,
-    '--route-mode',
-    routeMode,
+    '--url',
+    route.url,
   ];
-  if (basePath) {
-    activateCommand.push('--base-path', basePath);
-  }
-  if (customDomain) {
-    activateCommand.push('--custom-domain', customDomain);
-  }
 
   const activateResult = parseKeyValue(
     (await shell.run('ssh', [...sshArgs, commandString(activateCommand)], { cwd })).stdout,
@@ -172,24 +170,8 @@ export async function deployApp({
     throw new Error(activateResult.message || 'activate-release failed');
   }
 
-  const subdomainUrl = activateResult.subdomainUrl || (
-    routeMode === 'subdomain' || routeMode === 'both'
-      ? `https://${defaultRouteHost({ host, org, app: built.app })}`
-      : ''
-  );
-  const pathUrl = activateResult.pathUrl || (
-    routeMode === 'path' || routeMode === 'both'
-      ? `https://${host}${basePath || defaultRoutePath({ org, app: built.app })}`
-      : ''
-  );
-  const defaultUrl = activateResult.defaultUrl || (routeMode === 'path' ? pathUrl : subdomainUrl);
-  const customUrl = activateResult.customUrl || (customDomain ? `https://${customDomain}` : '');
-
   return {
     ...built,
-    defaultUrl,
-    subdomainUrl,
-    pathUrl,
-    customUrl,
+    url: activateResult.url || route.url,
   };
 }

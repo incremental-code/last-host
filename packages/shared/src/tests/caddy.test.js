@@ -5,10 +5,12 @@ import {
   defaultRouteHost,
   normalizeBasePath,
   normalizeRouteMode,
+  publicUrlForRoute,
   renderCaddyConfig,
   renderPathHandle,
   renderPathRoutes,
   renderReverseProxyBlock,
+  resolveRouteFromUrl,
   renderCustomDomainRoute,
   renderDefaultRoute,
 } from '../caddy.js';
@@ -108,7 +110,49 @@ test('render complete caddy config for mixed routes', () => {
 test('route helpers normalize defaults', () => {
   assert.equal(normalizeBasePath('', { org: 'demo', app: 'ecommerce' }), '/demo/ecommerce');
   assert.equal(normalizeRouteMode('PATH'), 'path');
+  assert.equal(normalizeRouteMode('custom'), 'custom');
   assert.equal(normalizeRouteMode('invalid'), 'subdomain');
+});
+
+test('publicUrlForRoute renders a single public URL', () => {
+  assert.equal(
+    publicUrlForRoute({ host: 'lastjs.org', org: 'demo', app: 'ecommerce', routeMode: 'subdomain' }),
+    'https://ecommerce.demo.lastjs.org',
+  );
+  assert.equal(
+    publicUrlForRoute({ host: 'lastjs.org', org: 'demo', app: 'ecommerce', routeMode: 'path', basePath: '/demo/ecommerce' }),
+    'https://lastjs.org/demo/ecommerce',
+  );
+  assert.equal(
+    publicUrlForRoute({ host: 'lastjs.org', org: 'demo', app: 'ecommerce', routeMode: 'custom', customDomain: 'Shop.Example.com' }),
+    'https://shop.example.com',
+  );
+});
+
+test('resolveRouteFromUrl infers subdomain, path, and custom routes', () => {
+  assert.deepEqual(
+    resolveRouteFromUrl({ url: 'https://ecommerce.demo.lastjs.org', host: 'lastjs.org', org: 'demo', app: 'ecommerce' }),
+    { routeMode: 'subdomain', basePath: '', customDomain: '', url: 'https://ecommerce.demo.lastjs.org' },
+  );
+  assert.deepEqual(
+    resolveRouteFromUrl({ url: 'https://lastjs.org/demo/ecommerce', host: 'lastjs.org', org: 'demo', app: 'ecommerce' }),
+    { routeMode: 'path', basePath: '/demo/ecommerce', customDomain: '', url: 'https://lastjs.org/demo/ecommerce' },
+  );
+  assert.deepEqual(
+    resolveRouteFromUrl({ url: 'shop.example.com', host: 'lastjs.org', org: 'demo', app: 'ecommerce' }),
+    { routeMode: 'custom', basePath: '', customDomain: 'shop.example.com', url: 'https://shop.example.com' },
+  );
+});
+
+test('resolveRouteFromUrl rejects unsupported URL shapes', () => {
+  assert.throws(
+    () => resolveRouteFromUrl({ url: 'https://lastjs.org/', host: 'lastjs.org', org: 'demo', app: 'ecommerce' }),
+    /base host root is not a deployable app URL/,
+  );
+  assert.throws(
+    () => resolveRouteFromUrl({ url: 'https://shop.example.com/demo', host: 'lastjs.org', org: 'demo', app: 'ecommerce' }),
+    /custom domain URLs cannot include a path/,
+  );
 });
 
 test('reverse proxy block validates required fields', () => {

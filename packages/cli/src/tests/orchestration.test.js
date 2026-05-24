@@ -7,7 +7,7 @@ const fixtureCwd = '/tmp/last-host-cli-fixture';
 
 function createMockShell({
   prepareStdout = 'status=ok\n',
-  activateStdout = 'status=ok\ndefaultUrl=https://shop.acme.lastjs.org\nsubdomainUrl=https://shop.acme.lastjs.org\ncustomUrl=https://shop.acme.com\n',
+  activateStdout = 'status=ok\nurl=https://shop.acme.com\n',
 } = {}) {
   const calls = [];
   return {
@@ -60,7 +60,7 @@ test('deployApp orchestrates build, upload and remote release activation', async
     flags: {
       org: 'Acme',
       host: 'LastJS.org',
-      'custom-domain': 'shop.acme.com',
+      url: 'https://shop.acme.com',
       'ssh-user': 'deploy',
       'ssh-key': '/keys/deploy.pem',
       'remote-root': '/opt/last-host',
@@ -70,10 +70,7 @@ test('deployApp orchestrates build, upload and remote release activation', async
     fs: mockFs,
   });
 
-  assert.equal(result.defaultUrl, 'https://shop.acme.lastjs.org');
-  assert.equal(result.subdomainUrl, 'https://shop.acme.lastjs.org');
-  assert.equal(result.pathUrl, '');
-  assert.equal(result.customUrl, 'https://shop.acme.com');
+  assert.equal(result.url, 'https://shop.acme.com');
   assert.equal(shell.calls.some((call) => call.command === 'scp'), true);
   assert.equal(
     shell.calls.some((call) => call.command === 'ssh' && call.args.at(-1).includes('prepare-release')),
@@ -86,15 +83,14 @@ test('deployApp orchestrates build, upload and remote release activation', async
   const prepareCommand = shell.calls.find(
     (call) => call.command === 'ssh' && call.args.at(-1).includes('prepare-release'),
   ).args.at(-1);
-  assert.match(prepareCommand, /--custom-domain/);
-  assert.match(prepareCommand, /--route-mode/);
+  assert.match(prepareCommand, /--url/);
   assert.match(prepareCommand, /--health-path/);
   assert.equal(shell.calls.some((call) => call.command === 'ssh' && call.args.includes('-i')), true);
 });
 
-test('deployApp supports path routing', async () => {
+test('deployApp supports path URLs', async () => {
   const shell = createMockShell({
-    activateStdout: 'status=ok\ndefaultUrl=https://lastjs.org/demo/ecommerce\npathUrl=https://lastjs.org/demo/ecommerce\n',
+    activateStdout: 'status=ok\nurl=https://lastjs.org/demo/ecommerce\n',
   });
 
   const result = await deployApp({
@@ -103,21 +99,18 @@ test('deployApp supports path routing', async () => {
       org: 'demo',
       app: 'ecommerce',
       host: 'lastjs.org',
-      'route-mode': 'path',
+      url: 'https://lastjs.org/demo/ecommerce',
     },
     env: {},
     shell,
     fs: mockFs,
   });
 
-  assert.equal(result.defaultUrl, 'https://lastjs.org/demo/ecommerce');
-  assert.equal(result.pathUrl, 'https://lastjs.org/demo/ecommerce');
-  assert.equal(result.subdomainUrl, '');
+  assert.equal(result.url, 'https://lastjs.org/demo/ecommerce');
   const prepareCommand = shell.calls.find(
     (call) => call.command === 'ssh' && call.args.at(-1).includes('prepare-release'),
   ).args.at(-1);
-  assert.match(prepareCommand, /--route-mode/);
-  assert.match(prepareCommand, /--base-path/);
+  assert.match(prepareCommand, /--url/);
   assert.match(prepareCommand, /\/demo\/ecommerce/);
 });
 

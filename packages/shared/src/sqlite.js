@@ -101,7 +101,27 @@ export const V4_MIGRATION = {
   ],
 };
 
-export const MIGRATIONS = [V1_MIGRATION, V2_MIGRATION, V3_MIGRATION, V4_MIGRATION];
+export const V5_MIGRATION = {
+  version: 5,
+  name: 'v5-custom-route-mode',
+  statements: [
+    `ALTER TABLE app_routes RENAME TO app_routes_v3_backup`,
+    `CREATE TABLE app_routes (
+      app_id TEXT PRIMARY KEY,
+      route_mode TEXT NOT NULL DEFAULT 'subdomain' CHECK(route_mode IN ('subdomain', 'path', 'custom', 'both')),
+      base_path TEXT NOT NULL DEFAULT '',
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+      FOREIGN KEY(app_id) REFERENCES apps(id)
+    )`,
+    `INSERT INTO app_routes(app_id, route_mode, base_path, created_at, updated_at)
+      SELECT app_id, route_mode, base_path, created_at, updated_at
+      FROM app_routes_v3_backup`,
+    `DROP TABLE app_routes_v3_backup`,
+  ],
+};
+
+export const MIGRATIONS = [V1_MIGRATION, V2_MIGRATION, V3_MIGRATION, V4_MIGRATION, V5_MIGRATION];
 
 export function schemaStatementsForVersion(version = 1) {
   const migration = MIGRATIONS.find((item) => item.version === version);

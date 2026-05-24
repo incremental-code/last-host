@@ -8,7 +8,7 @@ test('parseArgv parses flags and positionals', () => {
     '--org',
     'acme',
     '--host=edge-a',
-    '--custom-domain',
+    '--url',
     'shop.acme.com',
     'extra',
   ]);
@@ -16,6 +16,6 @@ test('parseArgv parses flags and positionals', () => {
   assert.equal(parsed.command, 'deploy');
   assert.equal(parsed.flags.org, 'acme');
   assert.equal(parsed.flags.host, 'edge-a');
-  assert.equal(parsed.flags['custom-domain'], 'shop.acme.com');
+  assert.equal(parsed.flags.url, 'shop.acme.com');
   assert.deepEqual(parsed.positionals, ['extra']);
 });
