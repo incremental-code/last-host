@@ -18,7 +18,7 @@ Run the install script from this repository:
 curl -fsSL https://raw.githubusercontent.com/incremental-code/last-host/main/scripts/install-server.sh | sudo bash
 ```
 
-The script installs server dependencies, provisions the `deploy` user, and installs `last-host-server` globally from npm for that user. It uses distro `apt` packages for Node.js/NPM; if you require a newer Node.js version, install that first before running the script.
+The script installs server dependencies, provisions the `deploy` user, and installs `last-host-server` globally from npm as root. It then verifies that the `deploy` user can execute the command. It uses distro `apt` packages for Node.js/NPM; if you require a newer Node.js version, install that first before running the script.
 
 ## 3. Manual install (alternative)
 
@@ -42,10 +42,10 @@ sudo chown -R deploy:deploy /opt/last-host
 ### 3.3 Install `last-host-server`
 
 ```bash
-sudo -u deploy npm install -g @incremental-code/last-host-server
+sudo npm install -g @incremental-code/last-host-server
 ```
 
-That makes `last-host-server` available to the `deploy` user.
+That installs `last-host-server` into the system global npm prefix. Ensure `/usr/local/bin` is on the `deploy` user's `PATH`.
 
 ## 4. Allow the deploy user to manage services and Caddy
 

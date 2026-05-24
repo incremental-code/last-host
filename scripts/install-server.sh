@@ -49,12 +49,18 @@ fi
 mkdir -p "${HOST_ROOT}"
 chown -R deploy:deploy "${HOST_ROOT}"
 
-sudo -u deploy npm install -g @incremental-code/last-host-server
+npm install -g @incremental-code/last-host-server
 
-server_command_path="$(sudo -iu deploy command -v last-host-server || true)"
-echo "Server runtime installed globally from npm for the deploy user."
+server_command_path="$(command -v last-host-server || true)"
+deploy_command_path="$(sudo -u deploy env PATH="/usr/local/bin:/usr/bin:/bin" command -v last-host-server || true)"
+echo "Server runtime installed globally from npm."
 if [[ -n "${server_command_path}" ]]; then
   echo "Verified last-host-server at: ${server_command_path}"
+else
+  echo "Warning: last-host-server was not found in root PATH after install." >&2
+fi
+if [[ -n "${deploy_command_path}" ]]; then
+  echo "Verified deploy user can run last-host-server at: ${deploy_command_path}"
 else
   echo "Warning: last-host-server was not found in deploy user PATH." >&2
 fi
