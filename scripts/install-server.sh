@@ -36,8 +36,15 @@ if ! command -v apt >/dev/null 2>&1; then
   exit 1
 fi
 
-apt update
-apt install -y nodejs npm sqlite3 caddy openssh-server tar git
+if ! apt update; then
+  echo "Failed to refresh apt package indexes." >&2
+  exit 1
+fi
+
+if ! apt install -y nodejs npm sqlite3 caddy openssh-server tar git; then
+  echo "Failed to install required packages." >&2
+  exit 1
+fi
 
 node_major="$(node -p "process.versions.node.split(\".\")[0]")"
 if [[ "${node_major}" -lt 18 ]]; then
@@ -64,5 +71,11 @@ fi
 sudo -u deploy npm --prefix "${SOURCE_DIR}" install
 sudo -u deploy npm --prefix "${SOURCE_DIR}" link --workspace packages/server
 
+install_path="$(sudo -u deploy bash -lc "command -v last-host-server || true")"
 echo "Server runtime installed. This uses npm link for the deploy user (global symlink)."
+if [[ -n "${install_path}" ]]; then
+  echo "Verified last-host-server at: ${install_path}"
+else
+  echo "Warning: last-host-server was not found in deploy user PATH." >&2
+fi
 echo "Next: configure sudoers and run last-host-server init."
