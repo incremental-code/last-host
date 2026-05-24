@@ -31,6 +31,11 @@ if [[ "${EUID}" -ne 0 ]]; then
   exit 1
 fi
 
+if ! command -v apt >/dev/null 2>&1; then
+  echo "Unsupported distribution: apt is required for this installer." >&2
+  exit 1
+fi
+
 apt update
 apt install -y nodejs npm sqlite3 caddy openssh-server tar git
 
