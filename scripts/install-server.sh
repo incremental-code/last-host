@@ -52,7 +52,9 @@ chown -R deploy:deploy "${HOST_ROOT}"
 npm install -g @incremental-code/last-host-server
 
 server_command_path="$(command -v last-host-server || true)"
-deploy_command_path="$(sudo -u deploy env PATH="/usr/local/bin:/usr/bin:/bin" command -v last-host-server || true)"
+deploy_command_path="$(
+  sudo -u deploy sh -lc 'PATH="/usr/local/bin:/usr/bin:/bin:$PATH"; command -v last-host-server || true'
+)"
 echo "Server runtime installed globally from npm."
 if [[ -n "${server_command_path}" ]]; then
   echo "Verified last-host-server at: ${server_command_path}"
