@@ -12,9 +12,13 @@ You need:
 
 ## 2. Install with the new install script (recommended)
 
-Run the new server install script command provided for your environment.
+Run the install script from this repository:
 
-The script should install server dependencies, provision the `deploy` user, and install `last-host-server`.
+```bash
+curl -fsSL https://raw.githubusercontent.com/incremental-code/last-host/main/scripts/install-server.sh | sudo bash
+```
+
+The script installs server dependencies, provisions the `deploy` user, and installs `last-host-server`.
 
 ## 3. Manual install (alternative)
 
