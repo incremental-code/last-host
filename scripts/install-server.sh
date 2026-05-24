@@ -4,6 +4,7 @@ set -euo pipefail
 REPO_URL="https://github.com/incremental-code/last-host.git"
 SOURCE_DIR="/opt/last-host-src"
 HOST_ROOT="/opt/last-host"
+MIN_NODE_MAJOR="${MIN_NODE_MAJOR:-18}"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -32,7 +33,7 @@ if [[ "${EUID}" -ne 0 ]]; then
 fi
 
 if ! command -v apt >/dev/null 2>&1; then
-  echo "Unsupported distribution: apt is required for this installer. For other distributions, use ONBOARDING_SERVER.md section "3. Manual install (alternative)"." >&2
+  echo "Unsupported distribution: apt is required for this installer. For other distributions, use ONBOARDING_SERVER.md section '3. Manual install (alternative)'." >&2
   exit 1
 fi
 
@@ -47,8 +48,8 @@ if ! apt install -y nodejs npm sqlite3 caddy openssh-server tar git; then
 fi
 
 node_major="$(node -p "process.versions.node.split(\".\")[0]")"
-if [[ "${node_major}" -lt 18 ]]; then
-  echo "Warning: detected Node.js ${node_major}.x from apt; use a newer source if your deployments require newer Node.js." >&2
+if [[ "${node_major}" -lt "${MIN_NODE_MAJOR}" ]]; then
+  echo "Warning: detected Node.js ${node_major}.x from apt; minimum recommended is ${MIN_NODE_MAJOR}.x." >&2
 fi
 
 if ! id -u deploy >/dev/null 2>&1; then
