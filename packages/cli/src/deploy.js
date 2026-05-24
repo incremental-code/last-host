@@ -72,9 +72,9 @@ export async function deployApp({
   const remoteRoot = flags['remote-root'] || env.LAST_HOST_REMOTE_ROOT || '/opt/last-host';
   const remoteCli = flags['remote-cli'] || env.LAST_HOST_REMOTE_CLI || 'last-host-server';
   const entryCommand = flags['entry-command'] || env.LAST_HOST_ENTRY_COMMAND || 'node app/server.js';
-  const appPort = Number(flags.port || env.LAST_HOST_APP_PORT || 3000);
   const healthPath = flags['health-path'] || env.LAST_HOST_HEALTH_PATH || '/health';
   const customDomain = (flags['custom-domain'] || '').trim().toLowerCase();
+  const envFile = flags['env-file'] || '';
   const rawRouteMode = flags['route-mode'] || env.LAST_HOST_ROUTE_MODE || 'subdomain';
   const routeValidation = validateRouteMode(rawRouteMode);
   if (!routeValidation.ok) throw new Error(routeValidation.error);
@@ -116,8 +116,6 @@ export async function deployApp({
     remoteArtifact,
     '--entry-command',
     entryCommand,
-    '--port',
-    String(appPort),
     '--health-path',
     healthPath,
     '--route-mode',
@@ -136,6 +134,13 @@ export async function deployApp({
 
   if (prepareResult.status === 'error') {
     throw new Error(prepareResult.message || 'prepare-release failed');
+  }
+
+  if (envFile) {
+    const remoteEnvDir = path.posix.join(remoteRoot, 'apps', `${org}--${built.app}`, 'shared', 'config');
+    const remoteEnvPath = path.posix.join(remoteEnvDir, '.env');
+    await shell.run('ssh', [...sshArgs, commandString(['mkdir', '-p', remoteEnvDir])], { cwd });
+    await shell.run('scp', [...scpArgs, path.resolve(cwd, envFile), `${sshTarget}:${remoteEnvPath}`], { cwd });
   }
 
   const activateCommand = [

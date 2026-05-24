@@ -18,7 +18,7 @@ CLI must provide (flags, env, or embedded metadata):
 - `app` (string)
 - `releaseId` (unique string)
 - `entryCommand` (node start command)
-- `port` (internal local port app listens on)
+- `port` (optional; auto-allocated from 3001 if omitted, reuses existing port on redeploy)
 - `healthPath` (default `/health`)
 - `routeMode` (`subdomain`, `path`, or `both`; default `subdomain`)
 - `basePath` (optional; defaults to `/<org>/<app>` when `routeMode` includes `path`)

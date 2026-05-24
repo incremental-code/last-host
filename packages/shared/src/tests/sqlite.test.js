@@ -4,6 +4,7 @@ import {
   V1_MIGRATION,
   V2_MIGRATION,
   V3_MIGRATION,
+  V4_MIGRATION,
   latestSchemaVersion,
   migrate,
   schemaStatementsForVersion,
@@ -39,7 +40,7 @@ test('migrate executes statements and inserts migration record', async () => {
   });
   assert.equal(
     calls.length,
-    V1_MIGRATION.statements.length + V2_MIGRATION.statements.length + V3_MIGRATION.statements.length + 3,
+    V1_MIGRATION.statements.length + V2_MIGRATION.statements.length + V3_MIGRATION.statements.length + V4_MIGRATION.statements.length + 4,
   );
   assert.match(calls.at(-1), /INSERT OR REPLACE INTO schema_migrations/);
 });
@@ -52,7 +53,7 @@ test('migrate only runs newer migrations', async () => {
     },
     fromVersion: 1,
   });
-  assert.equal(calls.length, V2_MIGRATION.statements.length + V3_MIGRATION.statements.length + 2);
+  assert.equal(calls.length, V2_MIGRATION.statements.length + V3_MIGRATION.statements.length + V4_MIGRATION.statements.length + 3);
   assert.match(calls.at(0), /CREATE TABLE IF NOT EXISTS app_runtime/);
 });
 
@@ -61,10 +62,16 @@ test('v3 migration includes routing table', () => {
   assert.match(sql, /CREATE TABLE IF NOT EXISTS app_routes/);
 });
 
+test('v4 migration includes port unique index and env table', () => {
+  const sql = V4_MIGRATION.statements.join('\n');
+  assert.match(sql, /idx_app_runtime_port/);
+  assert.match(sql, /CREATE TABLE IF NOT EXISTS app_env/);
+});
+
 test('migrate rejects non-function execute', async () => {
   await assert.rejects(() => migrate({ execute: null }), /execute must be a function/);
 });
 
 test('latest schema version reports migration max', () => {
-  assert.equal(latestSchemaVersion(), 3);
+  assert.equal(latestSchemaVersion(), 4);
 });
