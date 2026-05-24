@@ -18,7 +18,7 @@ Run the install script from this repository:
 curl -fsSL https://raw.githubusercontent.com/incremental-code/last-host/main/scripts/install-server.sh | sudo bash
 ```
 
-The script installs server dependencies, provisions the `deploy` user, and installs `last-host-server`.
+The script installs server dependencies, provisions the `deploy` user, and installs `last-host-server` with `npm link` for that user. It uses distro `apt` packages for Node.js/NPM, so if you require a newer Node.js version, install that first and then run the script.
 
 ## 3. Manual install (alternative)
 

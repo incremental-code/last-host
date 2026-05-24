@@ -39,6 +39,11 @@ fi
 apt update
 apt install -y nodejs npm sqlite3 caddy openssh-server tar git
 
+node_major="$(node -p "process.versions.node.split(\".\")[0]")"
+if [[ "${node_major}" -lt 18 ]]; then
+  echo "Warning: detected Node.js ${node_major}.x from apt; use a newer source if your deployments require newer Node.js." >&2
+fi
+
 if ! id -u deploy >/dev/null 2>&1; then
   useradd -m -s /bin/bash deploy
 fi
@@ -59,4 +64,5 @@ fi
 sudo -u deploy npm --prefix "${SOURCE_DIR}" install
 sudo -u deploy npm --prefix "${SOURCE_DIR}" link --workspace packages/server
 
-echo "Server runtime installed. Next: configure sudoers and run last-host-server init."
+echo "Server runtime installed. This uses npm link for the deploy user (global symlink)."
+echo "Next: configure sudoers and run last-host-server init."
