@@ -20,6 +20,8 @@ function createMockStore() {
   const domains = new Map();
   const hosts = new Map();
   const routes = new Map();
+  const envVars = new Map();
+  let nextPort = 3001;
 
   return {
     async init() {},
@@ -52,6 +54,27 @@ function createMockStore() {
     },
     async setDomains({ appId, customDomain }) {
       domains.set(appId, customDomain);
+    },
+    async getCustomDomain(appId) {
+      return domains.get(appId) || '';
+    },
+    async allocatePort(appId) {
+      const existing = runtimes.get(appId);
+      if (existing?.port) return existing.port;
+      return nextPort++;
+    },
+    async setEnvVars({ appId, vars }) {
+      const current = envVars.get(appId) || {};
+      envVars.set(appId, { ...current, ...vars });
+    },
+    async deleteEnvVars({ appId, keys }) {
+      const current = envVars.get(appId) || {};
+      for (const key of keys) delete current[key];
+      envVars.set(appId, current);
+    },
+    async getEnvVars(appId) {
+      const current = envVars.get(appId) || {};
+      return Object.entries(current).map(([key, value]) => ({ key, value }));
     },
     async listCaddyApps(hostId) {
       return [...apps.values()]
@@ -114,6 +137,8 @@ test('prepare + activate release calls tar, systemctl and caddy reload via shell
   const unitCall = shell.calls.find((c) => c.command === 'sudo' && c.args?.[0] === 'tee');
   assert.match(unitCall.options.stdin, /WorkingDirectory=\/opt\/last-host\/apps\/acme--shop\/current/);
   assert.match(unitCall.options.stdin, /ExecStart=node app\/server.js/);
+  assert.match(unitCall.options.stdin, /Environment=PORT=3100/);
+  assert.match(unitCall.options.stdin, /EnvironmentFile=-\/opt\/last-host\/apps\/acme--shop\/shared\/config\/\.env/);
   const caddyfile = files.find((f) => f.file.endsWith('/caddy/Caddyfile'));
   assert.match(caddyfile.content, /shop\.acme\.edge-a/);
 });
@@ -227,4 +252,75 @@ test('rollback activates previous release when current exists', async () => {
 
   const result = await runtime.rollbackRelease({ hostId: 'edge-a', org: 'acme', app: 'shop' });
   assert.equal(result.activeReleaseId, 'r1');
+});
+
+test('prepareRelease auto-allocates port when not provided', async () => {
+  const shell = createMockShell();
+  const store = createMockStore();
+
+  const runtime = createHostRuntime({
+    rootDir: '/opt/last-host',
+    store,
+    shell,
+    fsOps: {
+      async mkdir() {},
+      async access() {},
+      async readlink() { throw new Error('missing'); },
+      async symlink() {},
+      async rename() {},
+      async writeFile() {},
+    },
+  });
+
+  const result = await runtime.prepareRelease({
+    hostId: 'edge-a',
+    org: 'acme',
+    app: 'api',
+    releaseId: 'r1',
+    artifactPath: '/artifact.tar.gz',
+    entryCommand: 'node app/server.js',
+  });
+
+  assert.equal(result.port, 3001);
+});
+
+test('setEnv and getEnv manage per-app environment variables', async () => {
+  const shell = createMockShell();
+  const store = createMockStore();
+  const files = [];
+
+  const runtime = createHostRuntime({
+    rootDir: '/opt/last-host',
+    store,
+    shell,
+    fsOps: {
+      async mkdir() {},
+      async access() {},
+      async readlink() { throw new Error('missing'); },
+      async symlink() {},
+      async rename() {},
+      async writeFile(file, content) { files.push({ file, content }); },
+    },
+  });
+
+  await runtime.prepareRelease({
+    hostId: 'edge-a',
+    org: 'acme',
+    app: 'shop',
+    releaseId: 'r1',
+    artifactPath: '/artifact.tar.gz',
+    entryCommand: 'node app/server.js',
+    port: 3100,
+  });
+
+  await runtime.setEnv({ org: 'acme', app: 'shop', vars: { DATABASE_URL: 'sqlite:./db.sqlite', SECRET: 'abc123' } });
+
+  const envVars = await runtime.getEnv({ org: 'acme', app: 'shop' });
+  assert.equal(envVars.DATABASE_URL, 'sqlite:./db.sqlite');
+  assert.equal(envVars.SECRET, 'abc123');
+
+  const envFile = files.find((f) => f.file.endsWith('/shared/config/.env'));
+  assert.ok(envFile);
+  assert.match(envFile.content, /DATABASE_URL=sqlite:\.\/db\.sqlite/);
+  assert.match(envFile.content, /SECRET=abc123/);
 });
