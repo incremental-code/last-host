@@ -10,7 +10,7 @@ You need:
 - a DNS record pointing your deploy hostname at the server
 - `systemd` available on the server
 
-## 2. Install with the new install script (recommended)
+## 2. Install with the automated install script (recommended)
 
 Run the install script from this repository:
 
