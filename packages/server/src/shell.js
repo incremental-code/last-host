@@ -4,7 +4,11 @@ export function createShellRunner() {
   return {
     async run(command, args = [], options = {}) {
       return new Promise((resolve, reject) => {
-        const child = spawn(command, args, { stdio: 'pipe' });
+        const child = spawn(command, args, {
+          stdio: 'pipe',
+          cwd: options.cwd || undefined,
+          env: options.env ? { ...process.env, ...options.env } : process.env,
+        });
         let stdout = '';
         let stderr = '';
 
