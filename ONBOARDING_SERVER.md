@@ -12,11 +12,7 @@ You need:
 
 ## 2. Install with the new install script (recommended)
 
-Run the new server install script on the target host:
-
-```bash
-bash <(curl -fsSL <new-install-script-url>)
-```
+Run the new server install script command provided for your environment.
 
 The script should install server dependencies, provision the `deploy` user, and install `last-host-server`.
 
@@ -43,7 +39,7 @@ sudo chown -R deploy:deploy /opt/last-host
 
 ```bash
 cd /opt
-sudo -u deploy git clone <your-last-host-repo-url> last-host-src
+sudo -u deploy git clone https://github.com/incremental-code/last-host.git last-host-src
 cd /opt/last-host-src
 sudo -u deploy npm install
 sudo -u deploy npm link --workspace packages/server
@@ -56,9 +52,9 @@ That makes `last-host-server` available to the `deploy` user.
 `last-host-server` uses `sudo` to write systemd units, reload systemd, and reload Caddy. Add a sudoers file like this:
 
 ```bash
-sudo tee /etc/sudoers.d/last-host-deploy >/dev/null <<'EOF2'
+sudo tee /etc/sudoers.d/last-host-deploy >/dev/null <<'EOF'
 deploy ALL=(root) NOPASSWD: /usr/bin/mkdir, /usr/bin/tee, /usr/bin/systemctl, /usr/bin/caddy
-EOF2
+EOF
 sudo chmod 440 /etc/sudoers.d/last-host-deploy
 ```
 
