@@ -1,19 +1,44 @@
 {
   "name": "@incremental-code/last-host-server",
-  "version": "0.0.0",
-  "private": true,
+  "version": "0.0.3",
+  "description": "Host runtime CLI for deploying and managing last-host releases.",
   "type": "module",
   "bin": {
-    "last-host-server": "./bin/last-host-server.js"
+    "last-host-server": "bin/last-host-server.js"
   },
   "main": "./src/index.js",
   "exports": {
     ".": "./src/index.js"
   },
+  "files": [
+    "bin/*.js",
+    "src/*.js",
+    "README.md"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/incremental-code/last-host.git",
+    "directory": "packages/server"
+  },
+  "homepage": "https://github.com/incremental-code/last-host/tree/main/packages/server",
+  "bugs": {
+    "url": "https://github.com/incremental-code/last-host/issues"
+  },
+  "license": "MIT",
+  "keywords": [
+    "last-host",
+    "deploy",
+    "systemd",
+    "caddy",
+    "sqlite"
+  ],
   "scripts": {
     "test": "node --test \"src/tests/*.test.js\""
   },
   "dependencies": {
-    "@incremental-code/last-host-shared": "file:../shared"
+    "@incremental-code/last-host-shared": "^0.0.3"
   }
 }

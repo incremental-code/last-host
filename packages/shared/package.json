@@ -1,7 +1,7 @@
 {
   "name": "@incremental-code/last-host-shared",
-  "version": "0.0.0",
-  "private": true,
+  "version": "0.0.3",
+  "description": "Shared helpers for naming, release paths, SQLite migrations, and Caddy config in last-host.",
   "type": "module",
   "main": "./src/index.js",
   "exports": {
@@ -11,6 +11,31 @@
     "./sqlite": "./src/sqlite.js",
     "./caddy": "./src/caddy.js"
   },
+  "files": [
+    "src/*.js",
+    "README.md"
+  ],
+  "sideEffects": false,
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/incremental-code/last-host.git",
+    "directory": "packages/shared"
+  },
+  "homepage": "https://github.com/incremental-code/last-host/tree/main/packages/shared",
+  "bugs": {
+    "url": "https://github.com/incremental-code/last-host/issues"
+  },
+  "license": "MIT",
+  "keywords": [
+    "last-host",
+    "sqlite",
+    "caddy",
+    "routing",
+    "deploy"
+  ],
   "scripts": {
     "test": "node --test \"src/tests/*.test.js\""
   }

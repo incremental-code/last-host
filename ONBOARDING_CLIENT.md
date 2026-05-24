@@ -28,13 +28,10 @@ ssh -i ~/.ssh/last_host_deploy deploy@lastjs.org
 
 ## 2. Install the client CLI
 
-On the client machine, install the CLI from this repository:
+On the client machine, install the CLI globally from npm:
 
 ```bash
-git clone https://github.com/incremental-code/last-host.git
-cd last-host
-npm install
-npm link --workspace packages/cli
+npm install -g @incremental-code/last-host-cli
 ```
 
 That makes the `last-host` command available locally.

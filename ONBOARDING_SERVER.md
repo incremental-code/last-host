@@ -18,7 +18,7 @@ Run the install script from this repository:
 curl -fsSL https://raw.githubusercontent.com/incremental-code/last-host/main/scripts/install-server.sh | sudo bash
 ```
 
-The script installs server dependencies, provisions the `deploy` user, and installs `last-host-server` with `npm link` for that user. It uses distro `apt` packages for Node.js/NPM; if you require a newer Node.js version, install that first before running the script.
+The script installs server dependencies, provisions the `deploy` user, and installs `last-host-server` globally from npm for that user. It uses distro `apt` packages for Node.js/NPM; if you require a newer Node.js version, install that first before running the script.
 
 ## 3. Manual install (alternative)
 
@@ -42,11 +42,7 @@ sudo chown -R deploy:deploy /opt/last-host
 ### 3.3 Install `last-host-server`
 
 ```bash
-cd /opt
-sudo -u deploy git clone https://github.com/incremental-code/last-host.git last-host-src
-cd /opt/last-host-src
-sudo -u deploy npm install
-sudo -u deploy npm link --workspace packages/server
+sudo -u deploy npm install -g @incremental-code/last-host-server
 ```
 
 That makes `last-host-server` available to the `deploy` user.
